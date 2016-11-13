@@ -39,12 +39,12 @@ class Bot(IRCBot):
     def trackme(self, nick, message, channel):
         pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(nick))
         data = json.loads(pjson.text)
-        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [data["id"]])
+        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id=%s", [data["id"]])
         counter = cursor.rowcount
         if counter == 1:
             self.respond("I am stalking you already...", nick=nick)
         else:
-            cursor.execute("INSERT INTO ripple_tracking (user_id, username, mode, std_rank, std_pp, taiko_rank, taiko_score, ctb_rank, ctb_score, mania_rank, mania_pp) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" , [data["id"], data["username"], 0, data["std"]["global_leaderboard_rank"], data["std"]["pp"], data["taiko"]["global_leaderboard_rank"], data["taiko"]["ranked_score"], data["ctb"]["global_leaderboard_rank"], data["ctb"]["ranked_score"], data["mania"]["global_leaderboard_rank"], data["mania"]["pp"]])
+            cursor.execute("INSERT INTO ripple_tracking (user_id, std_rank, std_pp, taiko_rank, taiko_score, ctb_rank, ctb_score, mania_rank, mania_pp) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s)" , [data["id"], data["std"]["global_leaderboard_rank"], data["std"]["pp"], data["taiko"]["global_leaderboard_rank"], data["taiko"]["ranked_score"], data["ctb"]["global_leaderboard_rank"], data["ctb"]["ranked_score"], data["mania"]["global_leaderboard_rank"], data["mania"]["pp"]])
             db.commit()
             self.respond("%s is now tracking all your modes." % get["irc_nick"], nick=nick)
 
@@ -54,12 +54,12 @@ class Bot(IRCBot):
     def update(self, nick, message, channel):
         pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(nick))
         data = json.loads(pjson.text)
-        cursor.execute("SELECT mode FROM ripple_tracking WHERE user_id='%s'" , [data["id"]])
+        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [data["id"]])
         row = cursor.fetchone()
         counter = cursor.rowcount
         if counter == 1:
             if row[0] == 0:
-                self.respond("You are trying to update your std pp.", nick=nick)
+                self.respond("You are trying to update your std pp. {}".format(row[3]) , nick=nick)
             if row[0] == 1:
                 self.respond("You are trying to update your taiko score.", nick=nick)
             if row[0] == 2:
@@ -87,10 +87,12 @@ class Bot(IRCBot):
                 if mode == "3":
                     mode_s = "Mania"
                 self.respond("Chaning mode to {}".format(mode_s), nick=nick)
-                cursor.execute("UPDATE ripple_tracking SET mode='%s' WHERE user_id='%d'" , [mode, data["id"]])
+                cursor.execute("UPDATE ripple_tracking SET mode=%s WHERE user_id=%s", [mode, data["id"]])
                 db.commit()
             else:
                 self.respond("Mode not found. Numbers are supported only for now.", nick=nick)
+        else:
+            self.respond("You are not in my stalk list. You can signup with !stalkme.", nick=nick)
 
     def command_patterns(self):
         return (
