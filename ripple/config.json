@@ -6,6 +6,7 @@
     "irc_host": "irc.ripple.moe",
     "irc_nick": "",
     "irc_password": "",
+    "token": "",
     "bot_owner": "",
     "users" : "https://ripple.moe/api/v1/users/full?name={}"
 }
