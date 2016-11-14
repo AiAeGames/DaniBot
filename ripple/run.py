@@ -19,45 +19,45 @@ connection = pymysql.connect(host=get['host'], user=get['user'], passwd=get['pas
 connection.autocommit(True)
 cursor = connection.cursor(pymysql.cursors.DictCursor)
 
+def u_std(user_id, nick, pp, rank):
+    cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+    row = cursor.fetchone()
+    if pp == row["std_pp"]:
+        return False
+    else:
+        bot.send("privmsg", target=nick, message="Rank %+d (%+d pp)" % ((row["std_rank"] - rank), (pp - row["std_pp"])))
+        cursor.execute("UPDATE ripple_tracking SET std_pp=%s, std_rank=%s WHERE user_id=%s", [pp, rank, user_id])
+
+def u_taiko(user_id, nick, score, rank): 
+    cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+    row = cursor.fetchone()
+    if score == row["taiko_score"]:
+        return False
+    else:
+        bot.send("privmsg", target=nick, message="Rank %+d (%+d score)" % ((row["taiko_rank"] - rank), (score - row["taiko_score"])))
+        cursor.execute("UPDATE ripple_tracking SET taiko_score=%s, taiko_rank=%s WHERE user_id=%s", [score, rank, user_id])
+
+def u_ctb(user_id, nick, score, rank):   
+    cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+    row = cursor.fetchone()
+    if score == row["ctb_score"]:
+        return False
+    else:
+        bot.send("privmsg", target=nick, message="Rank %+d (%+d score)" % ((row["ctb_rank"] - rank), (score - row["ctb_score"])))
+        cursor.execute("UPDATE ripple_tracking SET ctb_score=%s, ctb_rank=%s WHERE user_id=%s", [score, rank, user_id])
+
+def u_mania(user_id, nick, pp, rank):    
+    cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+    row = cursor.fetchone()
+    if pp == row["mania_pp"]:
+        return False
+    else:
+        bot.send("privmsg", target=nick, message="Rank %+d (%+d pp)" % ((row["mania_rank"] - rank), (pp - row["mania_pp"])))
+        cursor.execute("UPDATE ripple_tracking SET mania_pp=%s, mania_rank=%s WHERE user_id=%s", [pp, rank, user_id])
+
 async def autoupdate():
     # TODO add is user online if not change stalk to false.
     await bot.wait("client_connect")
-    def u_std(user_id, nick, pp, rank):
-        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
-        row = cursor.fetchone()
-        if pp == row["std_pp"]:
-            return False
-        else:
-            bot.send("privmsg", target=username, message="Rank %+d (%+d pp)" % ((row["std_rank"] - rank), (pp - row["std_pp"])))
-            cursor.execute("UPDATE ripple_tracking SET std_pp=%s, std_rank=%s WHERE user_id=%s", [pp, rank, user_id])
- 
-    def u_taiko(user_id, nick, score, rank): 
-        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
-        row = cursor.fetchone()
-        if score == row["taiko_score"]:
-            return False
-        else:
-            bot.send("privmsg", target=username, message="Rank %+d (%+d score)" % ((row["taiko_rank"] - rank), (score - row["taiko_score"])))
-            cursor.execute("UPDATE ripple_tracking SET taiko_score=%s, taiko_rank=%s WHERE user_id=%s", [score, rank, user_id])
- 
-    def u_ctb(user_id, nick, score, rank):   
-        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
-        row = cursor.fetchone()
-        if score == row["ctb_score"]:
-            return False
-        else:
-            bot.send("privmsg", target=username, message="Rank %+d (%+d score)" % ((row["ctb_rank"] - rank), (score - row["ctb_score"])))
-            cursor.execute("UPDATE ripple_tracking SET ctb_score=%s, ctb_rank=%s WHERE user_id=%s", [score, rank, user_id])
-
-    def u_mania(user_id, nick, pp, rank):    
-        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
-        row = cursor.fetchone()
-        if pp == row["mania_pp"]:
-            return False
-        else:
-            bot.send("privmsg", target=username, message="Rank %+d (%+d pp)" % ((row["mania_rank"] - rank), (pp - row["mania_pp"])))
-            cursor.execute("UPDATE ripple_tracking SET mania_pp=%s, mania_rank=%s WHERE user_id=%s", [pp, rank, user_id])
-
     while not bot.protocol.closed:
         cursor.execute("SELECT * FROM ripple_tracking WHERE stalk=1",)
         counter = cursor.rowcount
@@ -65,7 +65,8 @@ async def autoupdate():
             cursor.execute("SELECT * FROM ripple_tracking WHERE stalk=1")
             results = cursor.fetchall()
             for row in results:
-                pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(row["username"]))
+                payload = {'token': get["token"]}
+                pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(row["username"]), data=json.dumps(payload))
                 data = json.loads(pjson.text)
                 username = row["username"].replace(" ", "_")
                 if row["mode"] == 0:
@@ -84,9 +85,13 @@ class IrcBot(Dispatcher):
             self.respond("Bot is shutting down.", nick=nick)
             quit()
     
-    @cooldown(10)
+    @cooldown(60)
     def h(self, nick, message, channel):
-        self.respond("Click [http://google.bg here] for %s's full command list." % get["irc_nick"], nick=nick)
+        self.respond("To turn on DaniBot: ", nick=nick)
+        self.respond("1. Write !stalkme", nick=nick)
+        self.respond("2. To change mode use !m from 0 to 3", nick=nick)
+        self.respond("3. To manually update pp write !u", nick=nick)
+        self.respond("4. To turn on auto update write !stalk if you want to turn if off write it again.", nick=nick)
     
     @cooldown(10)
     def trackme(self, nick, message, channel):
@@ -103,43 +108,6 @@ class IrcBot(Dispatcher):
     
     @cooldown(10)
     def u(self, nick, message, channel):
-
-        def u_std(user_id, nick, pp, rank):
-            cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
-            row = cursor.fetchone()
-            if pp == row["std_pp"]:
-                self.respond("There is no pp change.", nick=nick)
-            else:
-                self.respond("Rank %+d (%+d pp)" % ((row["std_rank"] - rank), (pp - row["std_pp"])), nick=nick)
-                cursor.execute("UPDATE ripple_tracking SET std_pp=%s, std_rank=%s WHERE user_id=%s", [pp, rank, user_id])
- 
-        def u_taiko(user_id, nick, score, rank): 
-            cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
-            row = cursor.fetchone()
-            if score == row["taiko_score"]:
-                self.respond("There is no pp change.", nick=nick)
-            else:
-                self.respond("Rank %+d (%+d score)" % ((row["taiko_rank"] - rank), (score - row["taiko_score"])), nick=nick)
-                cursor.execute("UPDATE ripple_tracking SET taiko_score=%s, taiko_rank=%s WHERE user_id=%s", [score, rank, user_id])
- 
-        def u_ctb(user_id, nick, score, rank):   
-            cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
-            row = cursor.fetchone()
-            if score == row["ctb_score"]:
-                self.respond("There is no pp change.", nick=nick)
-            else:
-                self.respond("Rank %+d (%+d score)" % ((row["ctb_rank"] - rank), (score - row["ctb_score"])), nick=nick)
-                cursor.execute("UPDATE ripple_tracking SET ctb_score=%s, ctb_rank=%s WHERE user_id=%s", [score, rank, user_id])
-
-        def u_mania(user_id, nick, pp, rank):    
-            cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
-            row = cursor.fetchone()
-            if pp == row["mania_pp"]:
-                self.respond("There is no pp change.", nick=nick)
-            else:
-                self.respond("Rank %+d (%+d pp)" % ((row["mania_rank"] - rank), (pp - row["mania_pp"])), nick=nick)
-                cursor.execute("UPDATE ripple_tracking SET mania_pp=%s, mania_rank=%s WHERE user_id=%s", [pp, rank, user_id])
-        
         pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(nick))
         data = json.loads(pjson.text)
         cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [data["id"]])
