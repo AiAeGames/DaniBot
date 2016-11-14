@@ -16,12 +16,67 @@ except:
 
 bot = bottom.Client(host=get["irc_host"], port=6667, ssl=False)
 connection = pymysql.connect(host=get['host'], user=get['user'], passwd=get['passwd'], db=get['db']) 
+connection.autocommit(True)
 cursor = connection.cursor(pymysql.cursors.DictCursor)
 
-async def autoupdate_or_some_shit():
+async def autoupdate():
+    # TODO add is user online if not change stalk to false.
     await bot.wait("client_connect")
+    def u_std(user_id, nick, pp, rank):
+        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+        row = cursor.fetchone()
+        if pp == row["std_pp"]:
+            return False
+        else:
+            bot.send("privmsg", target=username, message="Rank %+d (%+d pp)" % ((row["std_rank"] - rank), (pp - row["std_pp"])))
+            cursor.execute("UPDATE ripple_tracking SET std_pp=%s, std_rank=%s WHERE user_id=%s", [pp, rank, user_id])
+ 
+    def u_taiko(user_id, nick, score, rank): 
+        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+        row = cursor.fetchone()
+        if score == row["taiko_score"]:
+            return False
+        else:
+            bot.send("privmsg", target=username, message="Rank %+d (%+d score)" % ((row["taiko_rank"] - rank), (score - row["taiko_score"])))
+            cursor.execute("UPDATE ripple_tracking SET taiko_score=%s, taiko_rank=%s WHERE user_id=%s", [score, rank, user_id])
+ 
+    def u_ctb(user_id, nick, score, rank):   
+        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+        row = cursor.fetchone()
+        if score == row["ctb_score"]:
+            return False
+        else:
+            bot.send("privmsg", target=username, message="Rank %+d (%+d score)" % ((row["ctb_rank"] - rank), (score - row["ctb_score"])))
+            cursor.execute("UPDATE ripple_tracking SET ctb_score=%s, ctb_rank=%s WHERE user_id=%s", [score, rank, user_id])
+
+    def u_mania(user_id, nick, pp, rank):    
+        cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+        row = cursor.fetchone()
+        if pp == row["mania_pp"]:
+            return False
+        else:
+            bot.send("privmsg", target=username, message="Rank %+d (%+d pp)" % ((row["mania_rank"] - rank), (pp - row["mania_pp"])))
+            cursor.execute("UPDATE ripple_tracking SET mania_pp=%s, mania_rank=%s WHERE user_id=%s", [pp, rank, user_id])
+
     while not bot.protocol.closed:
-        await asyncio.sleep(3, loop=bot.loop)
+        cursor.execute("SELECT * FROM ripple_tracking WHERE stalk=1",)
+        counter = cursor.rowcount
+        if counter > 0:
+            cursor.execute("SELECT * FROM ripple_tracking WHERE stalk=1")
+            results = cursor.fetchall()
+            for row in results:
+                pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(row["username"]))
+                data = json.loads(pjson.text)
+                username = row["username"].replace(" ", "_")
+                if row["mode"] == 0:
+                    u_std(data["id"], username, data["std"]["pp"], data["std"]["global_leaderboard_rank"])
+                if row["mode"] == 1:
+                    u_taiko(data["id"], username, data["taiko"]["ranked_score"], data["taiko"]["global_leaderboard_rank"])
+                if row["mode"] == 2:
+                    u_ctb(data["id"], username, data["ctb"]["ranked_score"], data["ctb"]["global_leaderboard_rank"])
+                if row["mode"] == 3:
+                    u_mania(data["id"], username, data["mania"]["pp"], data["mania"]["global_leaderboard_rank"])
+        await asyncio.sleep(30, loop=bot.loop)
 
 class IrcBot(Dispatcher):
     def shutdown(self, nick, message, channel):
@@ -40,7 +95,7 @@ class IrcBot(Dispatcher):
         cursor.execute("SELECT * FROM ripple_tracking WHERE user_id=%s", [data["id"]])
         counter = cursor.rowcount
         if counter == 1:
-            self.respond("I am stalking you already...", nick=nick)
+            self.respond("I'm already stalking you...", nick=nick)
         else:
             cursor.execute("INSERT INTO ripple_tracking (user_id, username, std_rank, std_pp, taiko_rank, taiko_score, ctb_rank, ctb_score, mania_rank, mania_pp) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" , [data["id"], data["username"], data["std"]["global_leaderboard_rank"], data["std"]["pp"], data["taiko"]["global_leaderboard_rank"], data["taiko"]["ranked_score"], data["ctb"]["global_leaderboard_rank"], data["ctb"]["ranked_score"], data["mania"]["global_leaderboard_rank"], data["mania"]["pp"]])
             connection.commit()
@@ -49,22 +104,41 @@ class IrcBot(Dispatcher):
     @cooldown(10)
     def u(self, nick, message, channel):
 
-        def u_std(user_id, pp, rank):
+        def u_std(user_id, nick, pp, rank):
             cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
             row = cursor.fetchone()
             if pp == row["std_pp"]:
-                return "There is no pp change."
+                self.respond("There is no pp change.", nick=nick)
             else:
-                return "Rank {} (+{}pp)".format((row["std_rank"]-rank), (pp-row["std_pp"]))
+                self.respond("Rank %+d (%+d pp)" % ((row["std_rank"] - rank), (pp - row["std_pp"])), nick=nick)
+                cursor.execute("UPDATE ripple_tracking SET std_pp=%s, std_rank=%s WHERE user_id=%s", [pp, rank, user_id])
  
-        def u_taiko(user_id, score, rank): 
-            return "{} {} {} {}".format(user_id, score, rank)
+        def u_taiko(user_id, nick, score, rank): 
+            cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+            row = cursor.fetchone()
+            if score == row["taiko_score"]:
+                self.respond("There is no pp change.", nick=nick)
+            else:
+                self.respond("Rank %+d (%+d score)" % ((row["taiko_rank"] - rank), (score - row["taiko_score"])), nick=nick)
+                cursor.execute("UPDATE ripple_tracking SET taiko_score=%s, taiko_rank=%s WHERE user_id=%s", [score, rank, user_id])
  
-        def u_ctb(user_id, score, rank):   
-            return "{} {} {} {}".format(user_id, score, rank)
+        def u_ctb(user_id, nick, score, rank):   
+            cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+            row = cursor.fetchone()
+            if score == row["ctb_score"]:
+                self.respond("There is no pp change.", nick=nick)
+            else:
+                self.respond("Rank %+d (%+d score)" % ((row["ctb_rank"] - rank), (score - row["ctb_score"])), nick=nick)
+                cursor.execute("UPDATE ripple_tracking SET ctb_score=%s, ctb_rank=%s WHERE user_id=%s", [score, rank, user_id])
 
-        def u_mania(user_id, pp, rank):    
-            return "{} {} {} {}".format(user_id, pp, rank)
+        def u_mania(user_id, nick, pp, rank):    
+            cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
+            row = cursor.fetchone()
+            if pp == row["mania_pp"]:
+                self.respond("There is no pp change.", nick=nick)
+            else:
+                self.respond("Rank %+d (%+d pp)" % ((row["mania_rank"] - rank), (pp - row["mania_pp"])), nick=nick)
+                cursor.execute("UPDATE ripple_tracking SET mania_pp=%s, mania_rank=%s WHERE user_id=%s", [pp, rank, user_id])
         
         pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(nick))
         data = json.loads(pjson.text)
@@ -73,15 +147,15 @@ class IrcBot(Dispatcher):
         counter = cursor.rowcount
         if counter == 1:
             if row["mode"] == 0:
-                self.respond(u_std(data["id"], data["std"]["pp"], data["std"]["global_leaderboard_rank"]), nick=nick)
+                u_std(data["id"], nick, data["std"]["pp"], data["std"]["global_leaderboard_rank"])
             if row["mode"] == 1:
-                self.respond(u_taiko(data["id"], data["taiko"]["ranked_score"], data["taiko"]["global_leaderboard_rank"]), nick=nick)
+                u_taiko(data["id"], nick, data["taiko"]["ranked_score"], data["taiko"]["global_leaderboard_rank"])
             if row["mode"] == 2:
-                self.respond(u_ctb(data["id"], data["ctb"]["ranked_score"], data["ctb"]["global_leaderboard_rank"]), nick=nick)
+                u_ctb(data["id"], nick, data["ctb"]["ranked_score"], data["ctb"]["global_leaderboard_rank"])
             if row["mode"] == 3:
-                self.respond(u_mania(data["id"], data["mania"]["pp"], data["mania"]["global_leaderboard_rank"]), nick=nick)
+                u_mania(data["id"], nick, data["mania"]["pp"], data["mania"]["global_leaderboard_rank"])
         else:
-            self.respond("You are not in my stalk list. You can signup with !stalkme.", nick=nick)
+            return False
     
     @cooldown(10)
     def m(self, nick, message, channel):
@@ -105,9 +179,9 @@ class IrcBot(Dispatcher):
                 cursor.execute("UPDATE ripple_tracking SET mode=%s WHERE user_id=%s", [mode, data["id"]])
                 connection.commit()
             else:
-                self.respond("Mode not found. Numbers are supported only for now.", nick=nick)
+                return False
         else:
-            self.respond("You are not in my stalk list. You can signup with !stalkme.", nick=nick)
+            return False
 
     @cooldown(10)
     def stalk(self, nick, message, channel):
@@ -126,7 +200,7 @@ class IrcBot(Dispatcher):
                 cursor.execute("UPDATE ripple_tracking SET stalk=1 WHERE user_id=%s", [data["id"]])
                 connection.commit()
         else:
-            self.respond("You are not in my stalk list. You can signup with !stalkme.", nick=nick)
+            return False
 
     def command_patterns(self):
         return (
@@ -140,6 +214,6 @@ class IrcBot(Dispatcher):
 
 dispatcher = IrcBot(bot)
 connector(bot, dispatcher, get["irc_nick"], "#bulgarian", get["irc_password"])
-bot.loop.create_task(autoupdate_or_some_shit())
+bot.loop.create_task(autoupdate())
 bot.loop.create_task(bot.connect())
 bot.loop.run_forever()
