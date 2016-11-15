@@ -65,8 +65,10 @@ async def autoupdate():
             cursor.execute("SELECT * FROM ripple_tracking WHERE stalk=1")
             results = cursor.fetchall()
             for row in results:
-                payload = {'token': get["token"]}
-                pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(row["username"]), data=json.dumps(payload))
+                try:
+                    pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(row["username"]), headers={'token': get["token"]})
+                except requests.exceptions.RequestException as e:
+                    return
                 data = json.loads(pjson.text)
                 username = row["username"].replace(" ", "_")
                 if row["mode"] == 0:
