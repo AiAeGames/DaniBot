@@ -19,6 +19,17 @@ connection = pymysql.connect(host=get['host'], user=get['user'], passwd=get['pas
 connection.autocommit(True)
 cursor = connection.cursor(pymysql.cursors.DictCursor)
 
+def isOnline(user_id):
+    try:
+        onlineJson = requests.get("http://c.ripple.moe/api/v1/isOnline?id={}".format(user_id), headers={'User-agent' : 'Mozilla/5.0 (Windows; U; Windows NT 5.1; de; rv:1.9.1.5) Gecko/20091102 Firefox/3.5.5'})
+    except requests.exceptions.RequestException as e:
+        return
+    data = json.loads(onlineJson.text)
+    if(data["result"] == True):
+        return True
+    else:
+        return False
+
 def u_std(user_id, nick, pp, rank):
     cursor.execute("SELECT * FROM ripple_tracking WHERE user_id='%s'" , [user_id])
     row = cursor.fetchone()
@@ -65,20 +76,23 @@ async def autoupdate():
             cursor.execute("SELECT * FROM ripple_tracking WHERE stalk=1")
             results = cursor.fetchall()
             for row in results:
-                try:
-                    pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(row["username"]), headers={'token': get["token"]})
-                except requests.exceptions.RequestException as e:
-                    return
-                data = json.loads(pjson.text)
-                username = row["username"].replace(" ", "_")
-                if row["mode"] == 0:
-                    u_std(data["id"], username, data["std"]["pp"], data["std"]["global_leaderboard_rank"])
-                if row["mode"] == 1:
-                    u_taiko(data["id"], username, data["taiko"]["ranked_score"], data["taiko"]["global_leaderboard_rank"])
-                if row["mode"] == 2:
-                    u_ctb(data["id"], username, data["ctb"]["ranked_score"], data["ctb"]["global_leaderboard_rank"])
-                if row["mode"] == 3:
-                    u_mania(data["id"], username, data["mania"]["pp"], data["mania"]["global_leaderboard_rank"])
+                if(isOnline(row["user_id"]) == True):
+                    try:
+                        pjson = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(row["username"]), headers={'token': get["token"]})
+                    except requests.exceptions.RequestException as e:
+                        return
+                    data = json.loads(pjson.text)
+                    username = row["username"].replace(" ", "_")
+                    if row["mode"] == 0:
+                        u_std(data["id"], username, data["std"]["pp"], data["std"]["global_leaderboard_rank"])
+                    if row["mode"] == 1:
+                        u_taiko(data["id"], username, data["taiko"]["ranked_score"], data["taiko"]["global_leaderboard_rank"])
+                    if row["mode"] == 2:
+                        u_ctb(data["id"], username, data["ctb"]["ranked_score"], data["ctb"]["global_leaderboard_rank"])
+                    if row["mode"] == 3:
+                        u_mania(data["id"], username, data["mania"]["pp"], data["mania"]["global_leaderboard_rank"])
+                else:
+                    cursor.execute("UPDATE ripple_tracking SET stalk=0 WHERE user_id=%s", [row["user_id"]])
         await asyncio.sleep(30, loop=bot.loop)
 
 class IrcBot(Dispatcher):
@@ -89,6 +103,7 @@ class IrcBot(Dispatcher):
     
     @cooldown(60)
     def h(self, nick, message, channel):
+        self.respond("DaniBot is in Beta, if you find any bugs or bot is slow you can find in userpage how to contact me.", nick=nick)
         self.respond("To turn on DaniBot: ", nick=nick)
         self.respond("1. Write !stalkme", nick=nick)
         self.respond("2. To change mode use !m from 0 to 3", nick=nick)
