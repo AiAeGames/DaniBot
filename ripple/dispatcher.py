@@ -29,6 +29,17 @@ def connector(bot, dispatcher, NICK, CHANNELS, PASSWORD=None):
         for channel in CHANNELS:
             bot.send('JOIN', channel=channel)
 
+    @bot.on('client_disconnect')
+    async def reconnect(**kwargs):
+        # Wait a second so we don't flood
+        await asyncio.sleep(5, loop=bot.loop)
+
+        # Schedule a connection when the loop's next available
+        bot.loop.create_task(bot.connect())
+
+        # Wait until client_connect has triggered
+        await bot.wait("client_connect")
+
     @bot.on('PING')
     def keepalive(message, **kwargs):
         bot.send('PONG', message=message)
@@ -41,11 +52,9 @@ def connector(bot, dispatcher, NICK, CHANNELS, PASSWORD=None):
 
         if target == NICK:
             # private message
-            # bot.send("PRIVMSG", target=nick, message=message)
             dispatcher.handle_private_message(host, message)
         else:
             # channel message
-            # bot.send("PRIVMSG", target=target, message=message)
             dispatcher.handle_channel_message(host, target, message)
 
 
@@ -77,7 +86,7 @@ class Dispatcher(object):
         for pattern, callback in self._callbacks:
             match = pattern.match(message) or pattern.match('/privmsg')
             if match:
-                #print(match.groupdict())
+                print(match.groupdict())
                 results.append(
                     callback(nick, message, channel, **match.groupdict()))
 
@@ -153,7 +162,7 @@ def cooldown(delay):
             user_cd = get_locker(nick)
             if user_cd.Locked:
                 #return "You cannot use this command yet."
-                return False
+                return
 
             ret = func(*args, **kwargs)
             user_cd.Lock()
