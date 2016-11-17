@@ -67,7 +67,6 @@ def u_mania(user_id, nick, pp, rank):
         cursor.execute("UPDATE ripple_tracking SET mania_pp=%s, mania_rank=%s WHERE user_id=%s", [pp, rank, user_id])
 
 async def autoupdate():
-    # TODO add is user online if not change stalk to false.
     await bot.wait("client_connect")
     while not bot.protocol.closed:
         cursor.execute("SELECT * FROM ripple_tracking WHERE stalk=1",)
@@ -181,12 +180,39 @@ class IrcBot(Dispatcher):
                 cursor.execute("UPDATE ripple_tracking SET stalk=0 WHERE user_id=%s", [data["id"]])
                 connection.commit()
             else:
-                self.respond("Stalking is on.", nick=nick)
+                self.respond("Stalking is on, when you go offline stalk will turn off automatically.", nick=nick)
                 cursor.execute("UPDATE ripple_tracking SET stalk=1 WHERE user_id=%s", [data["id"]])
                 connection.commit()
         else:
             return False
 
+    @cooldown(10)
+    def l(self, nick, message, channel):
+        u_json = requests.get("http://ripple.moe/api/v1/users/full?name={}".format(nick))
+        u_data = json.loads(u_json.text)
+        cursor.execute("SELECT mode FROM ripple_tracking WHERE user_id='%s'" , [u_data["id"]])
+        row = cursor.fetchone()
+        l_json = requests.get("https://ripple.moe/api/v1/users/scores/recent?id={}&mode={}&l=1".format(u_data["id"], row["mode"]))
+        l_data = json.loads(l_json.text)
+        if row["mode"] == 0:
+            pp_or_score = "{:,} pp".format(l_data["scores"][0]["pp"])
+            self.respond("{} - {}".format(l_data["scores"][0]["beatmap"]["song_name"], pp_or_score), nick=nick)
+        elif row["mode"] == 3:
+            song_name = l_data["scores"][0]["beatmap"]["song_name"]
+            stars = l_data["scores"][0]["beatmap"]["difficulty2"]["mania"]
+            pp = l_data["scores"][0]["pp"]
+            count = "{} MAX / {} / {} / {} / {}".format(l_data["scores"][0]["count_geki"],l_data["scores"][0]["count_300"], (l_data["scores"][0]["count_100"] + l_data["scores"][0]["count_katu"]), l_data["scores"][0]["count_50"], l_data["scores"][0]["count_miss"])
+            if l_data["scores"][0]["full_combo"] == True:
+                fc = "FC"
+            else:
+                fc = "NoFC"
+            acc = l_data["scores"][0]["accuracy"]
+            info = "{} <Mania> | {:.2f} \u2605 | {:.2f}pp | {} | {} | {:.2f}%".format(song_name, stars, pp, count, fc, acc)
+            self.respond(info, nick=nick)
+        else:
+            pp_or_score = "{:,} score".format(l_data["scores"][0]["score"])
+            self.respond("{} - {}".format(l_data["scores"][0]["beatmap"]["song_name"], pp_or_score), nick=nick)
+        
     def command_patterns(self):
         return (
             ('-shutdown', self.shutdown),
@@ -194,6 +220,7 @@ class IrcBot(Dispatcher):
             ('!stalkme', self.trackme),
             ('!u', self.u),
             ('!m', self.m),
+            ('!l', self.l),
             ('!stalk$', self.stalk),
         )
 
