@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS `ripple_tracking` (
   `user_id` int(11) NOT NULL DEFAULT '0',
   `username` text NOT NULL,
+  `twitch_username` text,
   `mode` tinyint(4) NOT NULL DEFAULT '0',
   `stalk` tinyint(4) NOT NULL DEFAULT '0',
   `std_rank` int(11) NOT NULL DEFAULT '0',
