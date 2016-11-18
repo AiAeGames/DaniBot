@@ -1,0 +1,11 @@
+{
+    "host": "localhost",
+    "user": "root",
+    "passwd": "",
+    "db": "",
+    "irc_host": "irc.chat.twitch.tv",
+    "irc_nick": "",
+    "irc_password": "",
+    "token": "",
+    "bot_owner": ""
+}

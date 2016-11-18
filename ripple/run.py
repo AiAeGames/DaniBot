@@ -120,6 +120,8 @@ class IrcBot(Dispatcher):
         else:
             cursor.execute("INSERT INTO ripple_tracking (user_id, username, std_rank, std_pp, taiko_rank, taiko_score, ctb_rank, ctb_score, mania_rank, mania_pp) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" , [data["id"], data["username"], data["std"]["global_leaderboard_rank"], data["std"]["pp"], data["taiko"]["global_leaderboard_rank"], data["taiko"]["ranked_score"], data["ctb"]["global_leaderboard_rank"], data["ctb"]["ranked_score"], data["mania"]["global_leaderboard_rank"], data["mania"]["pp"]])
             connection.commit()
+            cursor.execute("INSERT INTO ripple_tracking_twitch (user_id, username, std_rank, std_pp, taiko_rank, taiko_score, ctb_rank, ctb_score, mania_rank, mania_pp) VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)" , [data["id"], data["username"], data["std"]["global_leaderboard_rank"], data["std"]["pp"], data["taiko"]["global_leaderboard_rank"], data["taiko"]["ranked_score"], data["ctb"]["global_leaderboard_rank"], data["ctb"]["ranked_score"], data["mania"]["global_leaderboard_rank"], data["mania"]["pp"]])
+            connection.commit()
             self.respond("%s is now tracking all your modes." % get["irc_nick"], nick=nick)
     
     @cooldown(10)
@@ -159,8 +161,10 @@ class IrcBot(Dispatcher):
                     mode_s = "Catch the Beat"
                 if mode == "3":
                     mode_s = "Mania"
-                self.respond("Chaning mode to {}".format(mode_s), nick=nick)
+                self.respond("Mode is set to {}.".format(mode_s), nick=nick)
                 cursor.execute("UPDATE ripple_tracking SET mode=%s WHERE user_id=%s", [mode, data["id"]])
+                connection.commit()
+                cursor.execute("UPDATE ripple_tracking_twitch SET mode=%s WHERE user_id=%s", [mode, data["id"]])
                 connection.commit()
             else:
                 return False
@@ -179,9 +183,13 @@ class IrcBot(Dispatcher):
                 self.respond("Stalking is off.", nick=nick)
                 cursor.execute("UPDATE ripple_tracking SET stalk=0 WHERE user_id=%s", [data["id"]])
                 connection.commit()
+                cursor.execute("UPDATE ripple_tracking_twitch SET stalk=0 WHERE user_id=%s", [data["id"]])
+                connection.commit()
             else:
                 self.respond("Stalking is on, when you go offline stalk will turn off automatically.", nick=nick)
                 cursor.execute("UPDATE ripple_tracking SET stalk=1 WHERE user_id=%s", [data["id"]])
+                connection.commit()
+                cursor.execute("UPDATE ripple_tracking_twitch SET stalk=1 WHERE user_id=%s", [data["id"]])
                 connection.commit()
         else:
             return False
@@ -198,6 +206,7 @@ class IrcBot(Dispatcher):
             pp_or_score = "{:,} pp".format(l_data["scores"][0]["pp"])
             self.respond("{} - {}".format(l_data["scores"][0]["beatmap"]["song_name"], pp_or_score), nick=nick)
         elif row["mode"] == 3:
+            #Yuyoyuppe - AiAe NM | 2,8 ☆ | 40pp/120pp M | 300/80/-/-/- | FC/NoFC | acc%
             song_name = l_data["scores"][0]["beatmap"]["song_name"]
             stars = l_data["scores"][0]["beatmap"]["difficulty2"]["mania"]
             pp = l_data["scores"][0]["pp"]
@@ -212,6 +221,10 @@ class IrcBot(Dispatcher):
         else:
             pp_or_score = "{:,} score".format(l_data["scores"][0]["score"])
             self.respond("{} - {}".format(l_data["scores"][0]["beatmap"]["song_name"], pp_or_score), nick=nick)
+
+    @cooldown(10)
+    def t(self, nick, message, channel):
+        self.respond(message="If you want my bot in your twitch channel DM me in discord AiAe*Games#2735.", nick=nick)
         
     def command_patterns(self):
         return (
@@ -220,6 +233,7 @@ class IrcBot(Dispatcher):
             ('!stalkme', self.trackme),
             ('!u', self.u),
             ('!m', self.m),
+            ('!t', self.m),
             ('!l', self.l),
             ('!stalk$', self.stalk),
         )
