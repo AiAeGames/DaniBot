@@ -46,6 +46,17 @@ def isOnline(user_id):
     else:
         return False
 
+def isStreaming(twich_name):
+    try:
+        twitchJson = requests.get("https://api.twitch.tv/kraken/streams/{}".format(twich_name), headers={'Client-ID': get["twitch_token"]})
+    except requests.exceptions.RequestException as e:
+        return
+    data = json.loads(twitchJson.text)
+    if data['stream'] == None:
+        return False
+    else:
+        return True
+
 def user_update(user_id):
     try:
         pjson = requests.get("http://ripple.moe/api/v1/users/full?id={}".format(user_id), headers={'token': get["token"]})
@@ -87,7 +98,8 @@ def user_update(user_id):
             msg = "Rank %+d (%+d pp)" % ((row["mania_rank"] - rank), (pp - row["mania_pp"]))
             cursor.execute("UPDATE ripple_tracking SET mania_pp=%s, mania_rank=%s WHERE user_id=%s", [pp, rank, user_id])
     if row["twitch_username"] != "":
-        send_to_twitch(row["twitch_username"], msg)
+        if isStreaming(row["twitch_username"].replace("#", "")) == True:
+            send_to_twitch(row["twitch_username"], msg)
     username = row["username"].replace(" ", "_")
     bot.send("privmsg", target=username, message=msg)
 
@@ -98,9 +110,7 @@ async def autoupdate():
         results = cursor.fetchall()
         for row in results:
             if isOnline(row["user_id"]) == True:
-                username = row["username"].replace(" ", "_")
                 user_update(row["user_id"])
-
         await asyncio.sleep(30, loop=bot.loop)
 
 class IrcBot(Dispatcher):
@@ -134,14 +144,7 @@ class IrcBot(Dispatcher):
         row = cursor.fetchone()
         counter = cursor.rowcount
         if counter == 1:
-            if row["mode"] == 0:
-                u_std(data["id"], nick, data["std"]["pp"], data["std"]["global_leaderboard_rank"])
-            if row["mode"] == 1:
-                u_taiko(data["id"], nick, data["taiko"]["ranked_score"], data["taiko"]["global_leaderboard_rank"])
-            if row["mode"] == 2:
-                u_ctb(data["id"], nick, data["ctb"]["ranked_score"], data["ctb"]["global_leaderboard_rank"])
-            if row["mode"] == 3:
-                u_mania(data["id"], nick, data["mania"]["pp"], data["mania"]["global_leaderboard_rank"])
+            user_update(row["user_id"])
         else:
             return False
 
@@ -184,7 +187,7 @@ class IrcBot(Dispatcher):
                 cursor.execute("UPDATE ripple_tracking SET stalk=0 WHERE user_id=%s", [data["id"]])
                 connection.commit()
             else:
-                self.respond("Stalking is on, when you go offline stalk will turn off automatically.", nick=nick)
+                self.respond("Stalking is on.", nick=nick)
                 cursor.execute("UPDATE ripple_tracking SET stalk=1 WHERE user_id=%s", [data["id"]])
                 connection.commit()
         else:
@@ -202,7 +205,6 @@ class IrcBot(Dispatcher):
             pp_or_score = "{:,} pp".format(l_data["scores"][0]["pp"])
             self.respond("{} - {}".format(l_data["scores"][0]["beatmap"]["song_name"], pp_or_score), nick=nick)
         elif row["mode"] == 3:
-            #Yuyoyuppe - AiAe NM | 2,8 ☆ | 40pp/120pp M | 300/80/-/-/- | FC/NoFC | acc%
             song_name = l_data["scores"][0]["beatmap"]["song_name"]
             stars = l_data["scores"][0]["beatmap"]["difficulty2"]["mania"]
             pp = l_data["scores"][0]["pp"]
