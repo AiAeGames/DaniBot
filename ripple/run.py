@@ -22,17 +22,35 @@ connection.autocommit(True)
 cursor = connection.cursor(pymysql.cursors.DictCursor)
 
 def send_to_twitch(channel, text):
-    twitch_bot.send("privmsg", target=channel, message=text)
+    chan = "#{}".format(channel)
+    print(chan)
+    #twitch_bot.say("JOIN {}".format(chan))
+    twitch_bot.send("privmsg", target=chan, message=text)
+
+def find_twitch_user(username):
+    cursor.execute("SELECT * FROM ripple_tracking WHERE stalk=1")
+    results = cursor.fetchall()
+    for row in results:
+        if row["twitch_username"] == username:
+            return row["username"].replace(" ", "_")
 
 class TwitchBot(Dispatcher):
     def shutdown(self, nick, message, channel):
-        print(nick)
         if nick == get["twitch_owner"]:
             quit()
+
+    def link(self, nick, message, channel):
+        if "https://osu.ppy.sh/b/" in message:
+            #bm_id = re.sub("\D", "", message)  
+            chan = channel.replace("#", "")
+            username = find_twitch_user(chan)
+            msg = "{} > {}".format(nick.split(".", 1)[0], message)
+            bot.send("privmsg", target=username, message=msg)
 
     def command_patterns(self):
         return (
             ('!shutdown', self.shutdown),
+            ('^http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', self.link),
         )
 
 def isOnline(user_id):
@@ -98,7 +116,7 @@ def user_update(user_id):
             msg = "Rank %+d (%+d pp)" % ((row["mania_rank"] - rank), (pp - row["mania_pp"]))
             cursor.execute("UPDATE ripple_tracking SET mania_pp=%s, mania_rank=%s WHERE user_id=%s", [pp, rank, user_id])
     if row["twitch_username"] != "":
-        if isStreaming(row["twitch_username"].replace("#", "")) == True:
+        if isStreaming(row["twitch_username"]) == True:
             send_to_twitch(row["twitch_username"], msg)
     username = row["username"].replace(" ", "_")
     bot.send("privmsg", target=username, message=msg)
@@ -121,7 +139,7 @@ class IrcBot(Dispatcher):
 
     @cooldown(60)
     def h(self, nick, message, channel):
-        self.respond("Commands: !trackme, !u, !m, !stalk, !last and !twitch | soon website with full commands use.", nick=nick)
+        self.respond("Commands: !stalkme, !u, !m, !stalk, !last and !twitch | soon website with full commands use.", nick=nick)
 
     @cooldown(10)
     def trackme(self, nick, message, channel):
@@ -239,7 +257,7 @@ class IrcBot(Dispatcher):
 dispatcher = IrcBot(bot)
 twitch_dispatcher = TwitchBot(twitch_bot)
 connector(bot, dispatcher, get["irc_nick"], "", get["irc_password"])
-connector(twitch_bot, twitch_dispatcher, get["twitch_nick"], "", get["twitch_password"])
+connector(twitch_bot, twitch_dispatcher, get["twitch_nick"], [""], get["twitch_password"])
 bot.loop.create_task(autoupdate())
 bot.loop.create_task(bot.connect())
 bot.loop.create_task(twitch_bot.connect())
