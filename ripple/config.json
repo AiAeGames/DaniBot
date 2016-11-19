@@ -6,6 +6,7 @@
     "irc_host": "irc.ripple.moe",
     "irc_nick": "",
     "irc_password": "",
+    "api": "",
     "token": "",
     "twitch_host": "irc.chat.twitch.tv",
     "twitch_nick": "",
