@@ -23,7 +23,6 @@ cursor = connection.cursor(pymysql.cursors.DictCursor)
 
 def send_to_twitch(channel, text):
     chan = "#{}".format(channel)
-    print(chan)
     #twitch_bot.say("JOIN {}".format(chan))
     twitch_bot.send("privmsg", target=chan, message=text)
 
@@ -41,11 +40,24 @@ class TwitchBot(Dispatcher):
 
     def link(self, nick, message, channel):
         if "https://osu.ppy.sh/b/" in message:
-            #bm_id = re.sub("\D", "", message)  
+            bm_id = re.sub("\D", "", message)
             chan = channel.replace("#", "")
             username = find_twitch_user(chan)
-            msg = "{} > {}".format(nick.split(".", 1)[0], message)
+            osuapi = requests.get("https://osu.ppy.sh/api/get_beatmaps?k={}&b={}".format(get["api"], bm_id))
+            osu_data = json.loads(osuapi.text)
+            bmset = osu_data[0]["beatmapset_id"]
+            artist = osu_data[0]["artist"]
+            title = osu_data[0]["title"]
+            creator = osu_data[0]["creator"]
+            version = osu_data[0]["version"]
+            bpm = osu_data[0]["bpm"]
+            stars = float(osu_data[0]["difficultyrating"])
+            bloodcat = "http://bloodcat.com/osu/s/{}".format(bmset)
+            osumap = "http://osu.ppy.sh/b/{}".format(bm_id)
+            msg = "{} > [{} osu!] | [{} Bloodcat] {} - {} [{}] (by {}), {}BPM, {:.2f} stars".format(nick.split(".", 1)[0], osumap, bloodcat, artist, title, version, creator, bpm, stars)
+            msg2 = "{} - {} [{}] (by {}), {}BPM, {:.2f} stars (PP is not supported atm)".format(artist, title, version, creator, bpm, stars)
             bot.send("privmsg", target=username, message=msg)
+            twitch_bot.send("privmsg", target=channel, message=msg2)
 
     def command_patterns(self):
         return (
