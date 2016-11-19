@@ -10,6 +10,7 @@
     "twitch_host": "irc.chat.twitch.tv",
     "twitch_nick": "",
     "twitch_password": "",
+    "twitch_token": "",
     "twitch_owner": "",
     "bot_owner": ""
 }
