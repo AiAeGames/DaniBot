@@ -39,11 +39,22 @@ class TwitchBot(Dispatcher):
             quit()
 
     def link(self, nick, message, channel):
-        if "https://osu.ppy.sh/b/" in message:
-            bm_id = re.sub("\D", "", message)
+        if "osu.ppy.sh/b/" in message:
+            if "&m=" in message:
+                link = re.split("&m=[0-9]", message)
+                beatmap_link = link[0]
+                mods = link[1].replace(" ", "")
+            else: 
+                beatmap_link = message
+                if "+" in message:
+                    link = re.split(" ", message)
+                    mods = link[1].replace(" ", "")
+                else:
+                    mods = ""
+            beatmap_id = re.sub("\D", "", beatmap_link)
             chan = channel.replace("#", "")
             username = find_twitch_user(chan)
-            osuapi = requests.get("https://osu.ppy.sh/api/get_beatmaps?k={}&b={}".format(get["api"], bm_id))
+            osuapi = requests.get("https://osu.ppy.sh/api/get_beatmaps?k={}&b={}".format(get["api"], beatmap_id))
             osu_data = json.loads(osuapi.text)
             bmset = osu_data[0]["beatmapset_id"]
             artist = osu_data[0]["artist"]
@@ -53,11 +64,13 @@ class TwitchBot(Dispatcher):
             bpm = osu_data[0]["bpm"]
             stars = float(osu_data[0]["difficultyrating"])
             bloodcat = "http://bloodcat.com/osu/s/{}".format(bmset)
-            osumap = "http://osu.ppy.sh/b/{}".format(bm_id)
-            msg = "{} > [{} osu!] | [{} Bloodcat] {} - {} [{}] (by {}), {}BPM, {:.2f} stars".format(nick.split(".", 1)[0], osumap, bloodcat, artist, title, version, creator, bpm, stars)
-            msg2 = "{} - {} [{}] (by {}), {}BPM, {:.2f} stars (PP is not supported atm)".format(artist, title, version, creator, bpm, stars)
+            osumap = "http://osu.ppy.sh/b/{}".format(beatmap_id)
+            msg = "{} > [{} osu!] | [{} Bloodcat] {} - {} [{}] +{} (by {}), {}BPM, {:.2f} stars".format(nick.split(".", 1)[0], osumap, bloodcat, artist, title, version, mods ,creator, bpm, stars)
+            msg2 = "{} - {} [{}] {} (by {}), {}BPM, {:.2f} stars (PP is not supported atm)".format(artist, title, version, mods, creator, bpm, stars)
             bot.send("privmsg", target=username, message=msg)
             twitch_bot.send("privmsg", target=channel, message=msg2)
+        else:
+            twitch_bot.send("privmsg", target=channel, message="Only links with /b/ are supported!")
 
     def command_patterns(self):
         return (
@@ -98,7 +111,7 @@ def user_update(user_id):
     if row["mode"] == 0:
         pp = data["std"]["pp"]
         rank = data["std"]["global_leaderboard_rank"]
-        if pp == row["std_pp"]:
+        if pp == row["std_pp"] or (pp-1) == row["std_pp"] or (pp+1) == row["std_pp"]:
             return
         else:
             msg = "Rank %+d (%+d pp)" % ((row["std_rank"] - rank), (pp - row["std_pp"]))
