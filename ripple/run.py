@@ -65,7 +65,7 @@ class TwitchBot(Dispatcher):
             stars = float(osu_data[0]["difficultyrating"])
             bloodcat = "http://bloodcat.com/osu/s/{}".format(bmset)
             osumap = "http://osu.ppy.sh/b/{}".format(beatmap_id)
-            msg = "{} > [{} osu!] | [{} Bloodcat] {} - {} [{}] +{} (by {}), {}BPM, {:.2f} stars".format(nick.split(".", 1)[0], osumap, bloodcat, artist, title, version, mods ,creator, bpm, stars)
+            msg = "{} > [{} osu!] | [{} Bloodcat] {} - {} [{}] {} (by {}), {}BPM, {:.2f} stars".format(nick.split(".", 1)[0], osumap, bloodcat, artist, title, version, mods ,creator, bpm, stars)
             msg2 = "{} - {} [{}] {} (by {}), {}BPM, {:.2f} stars (PP is not supported atm)".format(artist, title, version, mods, creator, bpm, stars)
             bot.send("privmsg", target=username, message=msg)
             twitch_bot.send("privmsg", target=channel, message=msg2)
