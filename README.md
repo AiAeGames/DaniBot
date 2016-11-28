@@ -10,4 +10,4 @@
 - Akuma Kudasai
 
 ### License
-This software is licensed under GNU GPL version 3. You can find the full text of the license [here](http://git.blosu.net/AiAeGames/AiAeBot/src/master/LICENSE).
+This software is licensed under GNU GPL version 3. You can find the full text of the license [here](https://github.com/AiAeGames/DaniBot/blob/master/LICENSE).
