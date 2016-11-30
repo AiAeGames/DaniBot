@@ -95,7 +95,7 @@ class RippleBot(Dispatcher):
         twitch_bot.send('JOIN', channel=f["twitch_username"])
         ripple_bot.send("privmsg", target=nick, message="AiAeGames joined your twitch channel.")
         twitch_bot.send("privmsg", target=f["twitch_username"], message="o/")
-    @cooldown(10)
+    @cooldown(5)
     def mode(self, nick, message, channel):
         if danibot.find_user(nick) == True:
             mode = ''.join(re.findall('\d+', message))
@@ -104,8 +104,7 @@ class RippleBot(Dispatcher):
                 ripple_bot.send("privmsg", target=nick, message="Mode is set to {}.".format(mode))
             else:
                 ripple_bot.send("privmsg", target=nick, message="0 - Standard, 1 - Taiko, 2 - CtB and 3 - Mania")
-    
-    @cooldown(10)
+
     def stalk(self, nick, message, channel):
         arg = re.findall("(twitch|ingame)", message)
         if not arg:
@@ -130,7 +129,7 @@ class RippleBot(Dispatcher):
             ripple_bot.send("privmsg", target=nick, message="Thanks for using my bot :).")
     @cooldown(10)
     def help(self, nick, message, channel):
-        ripple_bot.send("privmsg", target=nick, message="[http://danibot.tk/ Commands] -- Note every command have cooldown 10 secounds!")
+        ripple_bot.send("privmsg", target=nick, message="[http://aiaegames.xyz/bot/ Commands] -- Note every command have cooldown 10 secounds!")
 
     def command_patterns(self):
         return (
@@ -144,10 +143,16 @@ class RippleBot(Dispatcher):
             ('!help', self.help),
         )
 
+cursor.execute("SELECT * FROM ripple_tracking WHERE twitch_username IS NOT NULL AND twitch_username != ''")
+results = cursor.fetchall()
+twitch_users = []
+for row in results:
+    twitch_users.append("#" + row["twitch_username"])
+
 ripple_dispatcher = RippleBot(ripple_bot)
 twitch_dispatcher = TwitchBot(twitch_bot)
 connector(ripple_bot, ripple_dispatcher, config["ripple_username"], ["#bulgarian"], config["ripple_password"])
-connector(twitch_bot, twitch_dispatcher, config["twitch_username"], ["#danidpp", "#bloodline97", "#cadencelg"], config["twitch_password"])
+connector(twitch_bot, twitch_dispatcher, config["twitch_username"], twitch_users, config["twitch_password"])
 ripple_bot.loop.create_task(autoupdate())
 ripple_bot.loop.create_task(ripple_bot.connect())
 ripple_bot.loop.create_task(twitch_bot.connect())
