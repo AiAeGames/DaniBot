@@ -1,7 +1,7 @@
 # AiAeBot
 
 ### Thanks
-- russelg for helping me with updating dispatcher (https://github.com/russelg)
+- russelg for helping me with dispatcher (https://github.com/russelg)
 
 ### Where you can find AiAeBot
 - Ripple with name AiAeBot

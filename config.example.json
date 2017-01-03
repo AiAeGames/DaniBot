@@ -1,0 +1,21 @@
+{
+    "host" : "",
+    "user" : "",
+    "password" : "",
+    "database" : "",
+    "ripple_irc" : "",
+    "ripple_user" : "",
+    "ripple_password" : "",
+    "ripple_token" : "",
+    "twitch_irc" : "",
+    "twitch_user" : "",
+    "twitch_password" : "",
+    "twich_token" : "",
+    "tillerino_token" : "",
+    "osu_token" : "",
+    "owners" : [
+        "",
+        "",
+        ""
+    ]
+}

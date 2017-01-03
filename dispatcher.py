@@ -1,10 +1,11 @@
 import re
 import asyncio
 import threading
+from collections import defaultdict
 
 
 def connector(bot, dispatcher, NICK, CHANNELS, PASSWORD=None):
-    @bot.on('CLIENT_CONNECT')
+    @bot.on('client_connect')
     async def connect(**kwargs):
         bot.send('USER', user=NICK, realname=NICK)
 
@@ -40,11 +41,11 @@ def connector(bot, dispatcher, NICK, CHANNELS, PASSWORD=None):
         # Wait until client_connect has triggered
         await bot.wait("client_connect")
 
-    @bot.on('PING')
+    @bot.on('ping')
     def keepalive(message, **kwargs):
         bot.send('PONG', message=message)
 
-    @bot.on('PRIVMSG')
+    @bot.on('privmsg')
     def message(host, target, message, **kwargs):
         if host == NICK:
             # don't process messages from the bot itself
@@ -84,9 +85,8 @@ class Dispatcher(object):
         results = []
 
         for pattern, callback in self._callbacks:
-            match = pattern.match(message) or pattern.match('/privmsg')
+            match = pattern.search(message) or pattern.search('/privmsg')
             if match:
-                # print(match.groupdict())
                 results.append(
                     callback(nick, message, channel, **match.groupdict()))
 
@@ -127,46 +127,38 @@ class Dispatcher(object):
 
 
 class Locker(object):
-    def __init__(self, Time=None, user=""):
-        self.Time = Time if Time or Time == 0 and type(Time) == int else 5
-        self.Locked = False
+    def __init__(self, delay=None, user=""):
+        self.delay = delay if delay or delay == 0 and type(delay) == int else 5
+        self.locked = False
 
-    def Lock(self):
-        if not self.Locked:
-            if self.Time > 0:
-                self.Locked = True
-                t = threading.Timer(self.Time, self.Unlock, ())
+    def lock(self):
+        if not self.locked:
+            if self.delay > 0:
+                self.locked = True
+                t = threading.Timer(self.delay, self.unlock, ())
                 t.daemon = True
                 t.start()
-        return self.Locked
+        return self.locked
 
-    def Unlock(self):
-        self.Locked = False
-        return self.Locked
+    def unlock(self):
+        self.locked = False
+        return self.locked
 
 
 def cooldown(delay):
     def decorator(func):
-        def get_locker(nick):
-            if nick not in func.__cooldowns:
-                func.__cooldowns[nick] = Locker(delay)
-
-            return func.__cooldowns[nick]
+        if not hasattr(func, "__cooldowns"):
+            func.__cooldowns = defaultdict(lambda: Locker(delay))
 
         def inner(*args, **kwargs):
             nick = args[1]
 
-            if not hasattr(func, "__cooldowns"):
-                func.__cooldowns = {}
-
-            user_cd = get_locker(nick)
-            if user_cd.Locked:
-                #return "You cannot use this command yet."
+            user_cd = func.__cooldowns[nick]
+            if user_cd.locked:
                 return
 
             ret = func(*args, **kwargs)
-            user_cd.Lock()
+            user_cd.lock()
             return ret
         return inner
-
     return decorator
