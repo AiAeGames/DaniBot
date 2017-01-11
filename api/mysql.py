@@ -6,7 +6,7 @@ import requests
 import pymysql
 import re
 
-with open("./config.json", "r") as f: 
+with open("/home/aiae/r/config.json", "r") as f: 
     config = json.load(f)
 
 connection = pymysql.connect(host=config['host'], user=config['user'], passwd=config['password'], db=config['database'])
@@ -29,6 +29,14 @@ def checker(user_id=None, username=None):
         execute("SELECT * FROM ripple WHERE user_id=%s", [user_id])
     else:
         execute("SELECT * FROM ripple WHERE username=%s", [username])
+    counter = cursor.fetchone()
+    if counter != None and len(counter) > 0:
+        return True
+    else:
+        return False
+
+def check_mp(mp):
+    execute("SELECT * FROM mp WHERE channel=%s", [mp])
     counter = cursor.fetchone()
     if counter != None and len(counter) > 0:
         return True
