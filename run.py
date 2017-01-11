@@ -44,7 +44,7 @@ async def autoupdate():
 
 class TwitchBot(Dispatcher):
     def shutdown(self, nick, message, channel):
-        if nick in config['owners']:
+        if nick == "DaniDPP":
             self.respond(self, message="Sayonara", channel=channel, nick=nick)
             quit()
 
@@ -58,11 +58,11 @@ class TwitchBot(Dispatcher):
             link = re.search("\/[bsd]\/", message).group(0)
             remove_lines = re.search("[bsd]", link).group(0)
             if remove_lines == "b":
-                o = osu.get_beatmap(b=o_id, m=0)
+                o = osu.get_beatmap(b=o_id, m=results["mode"])
                 if o:
                     id = o[0]["beatmap_id"]
             elif remove_lines == "s":
-                o = osu.get_beatmap(s=o_id, m=0)
+                o = osu.get_beatmap(s=o_id, m=results["mode"])
                 if o:
                     i = 0
                     arr = []
@@ -99,6 +99,8 @@ class TwitchBot(Dispatcher):
                         "mods" : all_mods,
                         "bpm" : bpm,
                         "star" : ("%.2f" % t["starDiff"]),
+                        "acc95" : int(t["ppForAcc"]["entry"][5]["value"]),
+                        "acc96" : int(t["ppForAcc"]["entry"][6]["value"]),
                         "acc97" : int(t["ppForAcc"]["entry"][7]["value"]),
                         "acc98" : int(t["ppForAcc"]["entry"][9]["value"]),
                         "acc99" : int(t["ppForAcc"]["entry"][11]["value"]),
@@ -119,7 +121,7 @@ class RippleBot(Dispatcher):
 
     def shutdown(self, nick, message, channel):
         if nick == "AiAe_Games":
-            self.respond(message="Sayonara", channel=channel, nick=nick)
+            self.respond(message="Sayonara", nick=nick)
             quit()
 
     @cooldown(60)
@@ -129,13 +131,15 @@ class RippleBot(Dispatcher):
             api = generator.key()
             url = "https://pi.aiaegames.xyz/login_api.php?k={}".format(api)
             text = "To login click [" + url + " here]. Thanks for using AiAeBot."
-            mysql.execute("INSERT INTO ripple (user_id, username, api) VALUES(%s, %s, %s)", [ripple_api["id"], nick, api])
-            self.respond(message=text, channel=channel, nick=nick)
+            ingame = "{sender} > [{link1} {artist} - {title} [{version}]] [{link2} {link2n}]{mods} | {bpm}BPM, {star}  (98% {acc98}pp | 99% {acc99}pp)"
+            twitch = "{artist} - {title} [{version}]{mods} | {bpm}BPM, {star} (98% {acc98}pp | 99% {acc99}pp) {oppai}"
+            mysql.execute("INSERT INTO ripple (user_id, username, api, format_ingame, format_twitch) VALUES(%s, %s, %s, %s, %s)", [ripple_api["id"], nick, api, ingame, twitch])
+            self.respond(message=text, nick=nick)
         else:
             q = mysql.execute("SELECT * FROM ripple WHERE user_id=%s", [ripple_api["id"]])
             result = q.fetchone()
             url = "https://pi.aiaegames.xyz/login_api.php?k={}".format(result["api"])
-            self.respond(message="Click this [" + url + " link] to login.", channel=channel, nick=nick)
+            self.respond(message="Click this [" + url + " link] to login.", nick=nick)
 
     @cooldown(5)
     def mode(self, nick, message, channel):
@@ -145,15 +149,22 @@ class RippleBot(Dispatcher):
             self.respond(message="Mode is set to {}.".format(mode), channel=channel, nick=nick)
             mysql.execute("UPDATE ripple SET mode=%s WHERE user_id=%s", [mode, ripple_api["id"]])
         else:
-            self.respond(message="New username? Please go to settings and update it :).", channel=channel, nick=nick)
+            self.respond(message="New username? Please go to settings and update it :).", nick=nick)
 
     def joinmp(self, nick, message, channel):
         if nick == "AiAe_Games":
             mpid = ''.join(re.search('([0-9]+).*', message).group(1))
             mpchannel = "#multi_" + mpid
-            ripple_bot.send('JOIN', channel=mpchannel)
-            ripple_bot.send("privmsg", target=mpchannel, message="o/ i came here to show pp updates.")
+            if mysql.check_mp(mp=mpchannel) == False:
+                mysql.execute("INSERT mp (channel) VALUES (%s)", [mpchannel])
+                ripple_bot.send('JOIN', channel=mpchannel)
+                ripple_bot.send("privmsg", target=mpchannel, message="o/")
+            else:
+                mysql.execute("DELETE FROM mp WHERE channel = %s", [mpchannel])
+                ripple_bot.send("privmsg", target=mpchannel, message="Sayonara")
+                ripple_bot.send('PART', channel=mpchannel)
 
+    @cooldown(5)
     def downloadrequest(self, nick, message, channel):
         bid = re.search("\/[bsd]\/([0-9]+?)(?:\s|$|\?|&)", message).group(1)
         bo = blosu.get_beatmapset(q=bid)
@@ -162,7 +173,7 @@ class RippleBot(Dispatcher):
 
     @cooldown(60)
     def help(self, nick, message, channel):
-        self.respond(message="Click [https://pi.aiaegames.xyz/commands.php here] to see commands.", channel=channel, nick=nick)
+        self.respond(message="Click [https://pi.aiaegames.xyz/commands.php here] to see commands.", nick=nick)
         
     def command_patterns(self):
         return (
