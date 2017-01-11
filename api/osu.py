@@ -5,7 +5,7 @@ import requests
 import re
 import json
 
-with open("./config.json", "r") as f: 
+with open("/home/aiae/r/config.json", "r") as f: 
     config = json.load(f)
 
 def get_beatmap(b=None, s=None, m=0):
