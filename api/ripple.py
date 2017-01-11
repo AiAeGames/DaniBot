@@ -5,7 +5,7 @@ import requests
 import re
 import json
 
-with open("./config.json", "r") as f: 
+with open("/home/aiae/r/config.json", "r") as f: 
     config = json.load(f)
 
 def user(id=None, name=None):
