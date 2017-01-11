@@ -3,7 +3,7 @@
 import requests
 import json
 
-with open("./config.json", "r") as f: 
+with open("/home/aiae/r/config.json", "r") as f: 
     config = json.load(f)
 
 def twitch_online(twitch_name):
