@@ -7,7 +7,7 @@ import pymysql
 import re
 
 def user_update(username, update=False):
-    r =  ripple.user(name=username)
+    r =  ripple.user(id=username)
     cursor = mysql.execute("SELECT * FROM ripple WHERE user_id='%s'" , [r["id"]])
     row = cursor.fetchone()
     if row["mode"] == 0:
